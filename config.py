@@ -1,0 +1,49 @@
+from enum import StrEnum
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class LLMBackend(StrEnum):
+    OPENAI = "openai"
+    LMSTUDIO = "lmstudio"
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # --- Telegram ---
+    telegram_bot_token: str
+
+    # --- LLM ---
+    llm_backend: LLMBackend = LLMBackend.OPENAI
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+    lmstudio_base_url: str = "http://172.16.10.38:1234/v1"
+    lmstudio_model: str = "qwen3.5-9b-claude-4.6-highiq-instruct"
+    llm_timeout: float = 60.0
+
+    # --- Google Sheets ---
+    google_credentials_file: Path = Path("credentials/service_account.json")
+    google_spreadsheet_id: str
+
+    sheet_contacts: str = "Контакты"    # ФИО ученика | ДР | ФИО родителя | Телефон | Примечание
+    sheet_finances: str = "Финансы"     # ФИО ученика | <по столбцу на каждое событие>
+
+    # --- Логирование ---
+    log_level: str = "INFO"
+    log_dir: Path = Path("logs")
+    log_max_bytes: int = 5 * 1024 * 1024
+    log_backup_count: int = 7
+
+
+def load_settings() -> Settings:
+    return Settings()
+
+
+settings = load_settings()
