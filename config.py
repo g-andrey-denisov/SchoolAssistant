@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     lmstudio_model: str = "qwen3.5-9b-claude-4.6-highiq-instruct"
     llm_timeout: float = 60.0
 
+    # --- STT (Whisper через LM Studio или OpenAI) ---
+    stt_model: str = "whisper-large-v3"
+    stt_timeout: float = 60.0
+    # Если задан — STT идёт на этот сервер; иначе используется lmstudio_base_url
+    stt_base_url: str = ""
+
     # --- Google Sheets ---
     google_credentials_file: Path = Path("credentials/service_account.json")
     google_spreadsheet_id: str
