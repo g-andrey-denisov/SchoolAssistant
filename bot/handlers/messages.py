@@ -23,7 +23,8 @@ from services import contacts as contacts_svc
 from services import finance as finance_svc
 from services import reports as reports_svc
 from services import students as students_svc
-from sheets.schema import COL_STUDENT as COL_NAME, CONTRIB_PREFIX, EXPENSE_PREFIX
+from sheets.schema import CONTRIB_PREFIX, EXPENSE_PREFIX
+from utils.text import esc
 
 log = logging.getLogger(__name__)
 router = Router(name="messages")
@@ -110,7 +111,7 @@ async def _safe_dispatch(message: Message, state: FSMContext, intent: SheetInten
     except WorksheetNotFound as exc:
         log.error("Лист не найден: %s", exc)
         await message.answer(
-            f"⚠️ Лист <b>«{exc}»</b> не найден в таблице.\n"
+            f"⚠️ Лист <b>«{esc(exc)}»</b> не найден в таблице.\n"
             "Проверьте настройку SHEET_* в .env или создайте лист вручную."
         )
     except (SpreadsheetNotFound, APIError) as exc:
@@ -238,14 +239,14 @@ async def _dispatch(message: Message, state: FSMContext, intent: SheetIntent) ->
             return
         name, row_num, ambiguous = await students_svc.resolve_student(intent.student_name)
         if ambiguous:
-            await message.answer("Уточните:\n" + "\n".join(f"• {n}" for n in ambiguous))
+            await message.answer("Уточните:\n" + "\n".join(f"• {esc(n)}" for n in ambiguous))
             return
         if name is None:
-            await message.answer(f"Ученик <b>«{intent.student_name}»</b> не найден.")
+            await message.answer(f"Ученик <b>«{esc(intent.student_name)}»</b> не найден.")
             return
         await state.set_state(ConfirmAction.waiting)
         await state.update_data(action="mark_inactive", student_name=name, row_num=row_num)
-        await message.answer(f"Пометить <b>{name}</b> как «не ходит»?", reply_markup=confirm_keyboard())
+        await message.answer(f"Пометить <b>{esc(name)}</b> как «не ходит»?", reply_markup=confirm_keyboard())
         return
 
     if action == IntentAction.STUDENT_DELETE:
@@ -254,15 +255,15 @@ async def _dispatch(message: Message, state: FSMContext, intent: SheetIntent) ->
             return
         name, row_num, ambiguous = await students_svc.resolve_student(intent.student_name)
         if ambiguous:
-            await message.answer("Уточните:\n" + "\n".join(f"• {n}" for n in ambiguous))
+            await message.answer("Уточните:\n" + "\n".join(f"• {esc(n)}" for n in ambiguous))
             return
         if name is None:
-            await message.answer(f"Ученик <b>«{intent.student_name}»</b> не найден.")
+            await message.answer(f"Ученик <b>«{esc(intent.student_name)}»</b> не найден.")
             return
         await state.set_state(ConfirmAction.waiting)
         await state.update_data(action="delete_student", student_name=name, row_num=row_num)
         await message.answer(
-            f"⚠️ Удалить ученика <b>{name}</b> из класса? Это необратимо.",
+            f"⚠️ Удалить ученика <b>{esc(name)}</b> из класса? Это необратимо.",
             reply_markup=confirm_keyboard("Удалить 🗑", "Отменить ❌"),
         )
         return
@@ -291,7 +292,7 @@ async def _dispatch(message: Message, state: FSMContext, intent: SheetIntent) ->
         if not intent.amount:
             await _ask_clarification(
                 message, state,
-                f"Укажите сумму взноса для <b>{intent.student_name}</b>.",
+                f"Укажите сумму взноса для <b>{esc(intent.student_name)}</b>.",
                 intent, "amount",
             )
             return
@@ -332,7 +333,7 @@ async def _dispatch(message: Message, state: FSMContext, intent: SheetIntent) ->
         if not intent.amount:
             await _ask_clarification(
                 message, state,
-                f"Укажите общую сумму траты на «{intent.purpose}».",
+                f"Укажите общую сумму траты на «{esc(intent.purpose)}».",
                 intent, "amount",
             )
             return
@@ -347,7 +348,7 @@ async def _dispatch(message: Message, state: FSMContext, intent: SheetIntent) ->
         if not intent.amount:
             await _ask_clarification(
                 message, state,
-                f"Укажите общую сумму для разделения на «{intent.purpose}».",
+                f"Укажите общую сумму для разделения на «{esc(intent.purpose)}».",
                 intent, "amount",
             )
             return
@@ -363,7 +364,7 @@ async def _dispatch(message: Message, state: FSMContext, intent: SheetIntent) ->
         if not amount:
             await _ask_clarification(
                 message, state,
-                f"Укажите сумму на одного ученика для «{intent.purpose}».",
+                f"Укажите сумму на одного ученика для «{esc(intent.purpose)}».",
                 intent, "per_student_amount",
             )
             return
@@ -381,12 +382,12 @@ async def _dispatch(message: Message, state: FSMContext, intent: SheetIntent) ->
             return
         col_idx, col_name = await finance_svc.find_column_by_purpose(intent.purpose, prefix=prefix)
         if col_idx is None:
-            await message.answer(f"Столбец «{prefix}{intent.purpose}» не найден в «Финансы».")
+            await message.answer(f"Столбец «{prefix}{esc(intent.purpose)}» не найден в «Финансы».")
             return
         await state.set_state(ConfirmAction.waiting)
         await state.update_data(action="delete_finance_column", col_idx=col_idx, purpose=col_name)
         await message.answer(
-            f"⚠️ Удалить столбец <b>«{col_name}»</b> из листа «Финансы»? "
+            f"⚠️ Удалить столбец <b>«{esc(col_name)}»</b> из листа «Финансы»? "
             "Все данные по этому назначению будут потеряны.",
             reply_markup=confirm_keyboard("Удалить 🗑", "Отменить ❌"),
         )

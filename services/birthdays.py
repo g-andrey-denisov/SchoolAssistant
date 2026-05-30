@@ -5,6 +5,7 @@ from datetime import date
 from sheets.client import get_client
 from sheets.schema import COL_BIRTHDAY, COL_STUDENT
 from services.students import _is_inactive
+from utils.text import esc
 from utils.dates import (
     calculate_age, days_until_birthday, format_date, parse_date, will_turn_age,
 )
@@ -12,7 +13,6 @@ from utils.dates import (
 
 async def upcoming_birthdays(days_ahead: int = 30) -> str:
     students = await get_client().get_contacts()
-    today = date.today()
     upcoming = []
 
     for s in students:
@@ -43,7 +43,7 @@ async def upcoming_birthdays(days_ahead: int = 30) -> str:
         else:
             day_str = f"через {days} дн."
         age_str = f" (исполнится {turns})" if turns else ""
-        lines.append(f"  • <b>{name}</b> — {format_date(bday)} — {day_str}{age_str}")
+        lines.append(f"  • <b>{esc(name)}</b> — {format_date(bday)} — {day_str}{age_str}")
 
     return (
         f"🎂 <b>Ближайшие дни рождения (до {days_ahead} дней):</b>\n" + "\n".join(lines)
@@ -75,12 +75,12 @@ async def birthday_list(include_ages: bool = True) -> str:
     lines = []
     for _, name, bday_str, age in rows:
         age_str = f", {age} лет" if (include_ages and age is not None) else ""
-        lines.append(f"  • <b>{name}</b> — {bday_str}{age_str}")
+        lines.append(f"  • <b>{esc(name)}</b> — {bday_str}{age_str}")
 
     result = (
         f"📅 <b>Дни рождения класса ({len(rows)} из {len(students)}):</b>\n"
         + "\n".join(lines)
     )
     if no_bday:
-        result += f"\n\n<i>Дата не указана: {', '.join(no_bday)}</i>"
+        result += f"\n\n<i>Дата не указана: {', '.join(esc(x) for x in no_bday)}</i>"
     return result

@@ -303,7 +303,9 @@ class SheetsClient:
             if best:
                 full = prefix + best
                 return headers.index(full) + 1, full
-            # Fallback: ищем по полному имени среди всех колонок
+            # Без fallback по всем колонкам: иначе «удали взнос …» мог бы
+            # удалить столбец «Трата: …» и наоборот (потеря данных).
+            return None, None
         best, _ = find_best_match(purpose, purpose_headers)
         if best:
             return headers.index(best) + 1, best

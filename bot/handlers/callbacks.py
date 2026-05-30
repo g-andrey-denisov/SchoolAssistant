@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 router = Router(name="callbacks")
 
 
-async def _edit_and_clear(callback: CallbackQuery, state: FSMContext) -> dict:
+async def _edit_and_clear(callback: CallbackQuery, state: FSMContext) -> tuple[dict, str | None]:
     """Убирает клавиатуру с сообщения, очищает состояние, возвращает данные."""
     data = await state.get_data()
     current_state = await state.get_state()

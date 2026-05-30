@@ -146,7 +146,7 @@ nano .env
 # Telegram
 TELEGRAM_BOT_TOKEN=123456789:AAFxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-# Whitelist Telegram user-id через запятую
+# Whitelist Telegram user-id через запятую (пусто = бот закрыт для всех)
 ALLOWED_USER_IDS=123456789,987654321
 
 # LLM: openai или lmstudio
@@ -165,9 +165,6 @@ GOOGLE_SPREADSHEET_ID=1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms
 # Названия листов (если отличаются от дефолтных)
 # SHEET_CONTACTS=Контакты
 # SHEET_FINANCES=Финансы
-
-# Контекст диалога: сколько последних сообщений помнит бот
-# DIALOGUE_CONTEXT_SIZE=4
 
 # Логирование
 LOG_LEVEL=INFO

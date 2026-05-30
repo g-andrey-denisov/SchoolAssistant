@@ -12,6 +12,7 @@ import logging
 from sheets.client import get_client
 from sheets.schema import CONTRIB_PREFIX, EXPENSE_PREFIX, COL_STUDENT
 from services.students import get_active_students, resolve_student
+from utils.text import esc
 
 log = logging.getLogger(__name__)
 
@@ -24,14 +25,14 @@ async def add_contribution(
     """Фиксирует взнос ученика. Возвращает (ФИО|None, сообщение)."""
     name, _, ambiguous = await resolve_student(student_query)
     if ambiguous:
-        return None, "Уточните:\n" + "\n".join(f"• {n}" for n in ambiguous)
+        return None, "Уточните:\n" + "\n".join(f"• {esc(n)}" for n in ambiguous)
     if name is None:
-        return None, f"Ученик <b>«{student_query}»</b> не найден."
+        return None, f"Ученик <b>«{esc(student_query)}»</b> не найден."
 
     col = CONTRIB_PREFIX + purpose
     await get_client().batch_update_finance_column(col, {name: amount})
     log.info("Взнос: %s | %s | +%.2f", name, col, amount)
-    return name, f"✅ <b>{name}</b> сдал(а) <b>{amount:.0f} руб.</b> на «{purpose}»."
+    return name, f"✅ <b>{esc(name)}</b> сдал(а) <b>{amount:.0f} руб.</b> на «{esc(purpose)}»."
 
 
 async def contribution_all_students(purpose: str, per_student_amount: float) -> str:
@@ -46,7 +47,7 @@ async def contribution_all_students(purpose: str, per_student_amount: float) -> 
     total = per_student_amount * n
     log.info("Взнос all: %s | %.2f × %d = %.2f", col, per_student_amount, n, total)
     return (
-        f"✅ Взнос «{purpose}» записан всем:\n"
+        f"✅ Взнос «{esc(purpose)}» записан всем:\n"
         f"  На каждого: <b>{per_student_amount:.2f} руб.</b>\n"
         f"  Учеников: {n}\n"
         f"  Итого: <b>{total:.2f} руб.</b>"
@@ -67,7 +68,7 @@ async def split_expense(purpose: str, total_amount: float) -> str:
     await get_client().batch_update_finance_column(col, deltas)
     log.info("Трата split: %s | %.2f / %d = %.2f", col, total_amount, n, per_person)
     return (
-        f"✅ Трата «{purpose}» распределена:\n"
+        f"✅ Трата «{esc(purpose)}» распределена:\n"
         f"  Итого: <b>{total_amount:.0f} руб.</b>\n"
         f"  Учеников: {n}\n"
         f"  На каждого: <b>{per_person:.2f} руб.</b>"
@@ -86,7 +87,7 @@ async def expense_per_student(purpose: str, per_student_amount: float) -> str:
     total = per_student_amount * n
     log.info("Трата per_student: %s | %.2f × %d = %.2f", col, per_student_amount, n, total)
     return (
-        f"✅ Трата «{purpose}» записана каждому:\n"
+        f"✅ Трата «{esc(purpose)}» записана каждому:\n"
         f"  На каждого: <b>{per_student_amount:.2f} руб.</b>\n"
         f"  Учеников: {n}\n"
         f"  Итого: <b>{total:.2f} руб.</b>"
@@ -102,22 +103,22 @@ async def clear_student_contribution(student_query: str, purpose: str) -> str:
     """Обнуляет взнос конкретного ученика по назначению."""
     name, _, ambiguous = await resolve_student(student_query)
     if ambiguous:
-        return "Уточните:\n" + "\n".join(f"• {n}" for n in ambiguous)
+        return "Уточните:\n" + "\n".join(f"• {esc(n)}" for n in ambiguous)
     if name is None:
-        return f"Ученик <b>«{student_query}»</b> не найден."
+        return f"Ученик <b>«{esc(student_query)}»</b> не найден."
 
     # Ищем колонку по нечёткому совпадению с префиксом
     col_idx, col_name = await get_client().find_finance_column_fuzzy(purpose, prefix=CONTRIB_PREFIX)
     if col_name is None:
-        return f"Столбец «{CONTRIB_PREFIX}{purpose}» не найден в «Финансы»."
+        return f"Столбец «{CONTRIB_PREFIX}{esc(purpose)}» не найден в «Финансы»."
 
     found = await get_client().update_finance_student_cell(name, col_name, "")
     if not found:
-        return f"Строка ученика <b>{name}</b> не найдена в «Финансы»."
+        return f"Строка ученика <b>{esc(name)}</b> не найдена в «Финансы»."
 
     display_purpose = col_name[len(CONTRIB_PREFIX):]
     log.info("Взнос очищен: %s / %s", name, col_name)
-    return f"✅ Взнос <b>{name}</b> на «{display_purpose}» удалён."
+    return f"✅ Взнос <b>{esc(name)}</b> на «{esc(display_purpose)}» удалён."
 
 
 # ── Поиск и удаление столбца ─────────────────────────────────────────────
@@ -132,4 +133,4 @@ async def find_column_by_purpose(
 
 async def delete_finance_column(col_idx: int, purpose: str) -> str:
     await get_client().delete_finance_column(col_idx)
-    return f"🗑 Столбец «{purpose}» удалён из «Финансы»."
+    return f"🗑 Столбец «{esc(purpose)}» удалён из «Финансы»."

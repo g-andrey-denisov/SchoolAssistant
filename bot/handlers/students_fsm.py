@@ -10,6 +10,7 @@ from bot.keyboards.inline import confirm_keyboard
 from bot.states import AddStudentForm
 from sheets.schema import COL_BIRTHDAY, COL_NOTE, COL_PARENT_NAME, COL_PARENT_PHONE, COL_STUDENT as COL_NAME
 from utils.dates import parse_date
+from utils.text import esc
 
 log = logging.getLogger(__name__)
 router = Router(name="students_fsm")
@@ -23,14 +24,14 @@ def _is_skip(text: str) -> bool:
 
 def _student_summary(data: dict) -> str:
     lines = [
-        f"👤 ФИО: <b>{data.get(COL_NAME, '—')}</b>",
-        f"🎂 День рождения: <b>{data.get(COL_BIRTHDAY, '—') or '—'}</b>",
-        f"👨‍👩‍👧 ФИО родителя: <b>{data.get(COL_PARENT_NAME, '—') or '—'}</b>",
-        f"📞 Телефон: <b>{data.get(COL_PARENT_PHONE, '—') or '—'}</b>",
+        f"👤 ФИО: <b>{esc(data.get(COL_NAME, '—'))}</b>",
+        f"🎂 День рождения: <b>{esc(data.get(COL_BIRTHDAY, '—') or '—')}</b>",
+        f"👨‍👩‍👧 ФИО родителя: <b>{esc(data.get(COL_PARENT_NAME, '—') or '—')}</b>",
+        f"📞 Телефон: <b>{esc(data.get(COL_PARENT_PHONE, '—') or '—')}</b>",
     ]
     note = data.get(COL_NOTE, "")
     if note:
-        lines.append(f"📝 Примечание: <b>{note}</b>")
+        lines.append(f"📝 Примечание: <b>{esc(note)}</b>")
     return "\n".join(lines)
 
 
@@ -43,7 +44,7 @@ async def got_full_name(message: Message, state: FSMContext) -> None:
     await state.update_data({COL_NAME: name})
     await state.set_state(AddStudentForm.birthday)
     await message.answer(
-        f"✅ ФИО: <b>{name}</b>\n\n"
+        f"✅ ФИО: <b>{esc(name)}</b>\n\n"
         "Введите день рождения (ДД.ММ.ГГГГ) или «пропустить»:"
     )
 

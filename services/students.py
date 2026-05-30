@@ -9,6 +9,7 @@ from sheets.schema import (
     COL_PARENT_PHONE, COL_STUDENT, INACTIVE_MARKER, CONTACTS_COLUMNS,
 )
 from utils.fuzzy import find_best_with_ambiguity
+from utils.text import esc
 
 log = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ async def add_student(data: dict) -> str:
     await get_client().append_contact(data)
     await get_client().append_finance_student_row(name)
     log.info("Добавлен ученик: %s", name)
-    return f"✅ Ученик <b>{name}</b> добавлен в класс."
+    return f"✅ Ученик <b>{esc(name)}</b> добавлен в класс."
 
 
 async def mark_inactive(student_name: str, row_num: int) -> str:
@@ -58,19 +59,19 @@ async def mark_inactive(student_name: str, row_num: int) -> str:
     existing_note = student.get(COL_NOTE, "").strip() if student else ""
 
     if INACTIVE_MARKER in existing_note.lower():
-        return f"<b>{student_name}</b> уже помечен как «не ходит»."
+        return f"<b>{esc(student_name)}</b> уже помечен как «не ходит»."
 
     new_note = f"{existing_note}; {INACTIVE_MARKER}".lstrip("; ") if existing_note else INACTIVE_MARKER
     await get_client().update_contact_cell(row_num, COL_NOTE, new_note)
     log.info("Помечен неактивным: %s", student_name)
-    return f"✅ <b>{student_name}</b> помечен как «не ходит»."
+    return f"✅ <b>{esc(student_name)}</b> помечен как «не ходит»."
 
 
 async def delete_student(student_name: str, row_num: int) -> str:
     await get_client().delete_contact_row(row_num)
     await get_client().delete_finance_student_row(student_name)
     log.info("Удалён ученик: %s", student_name)
-    return f"🗑 Ученик <b>{student_name}</b> удалён из класса."
+    return f"🗑 Ученик <b>{esc(student_name)}</b> удалён из класса."
 
 
 async def format_student_list(
@@ -104,7 +105,7 @@ async def format_student_list(
             if parts:
                 extra = f" ({', '.join(parts)})"
 
-        lines.append(f"{i}. <b>{name}</b>{extra}{inactive_mark}")
+        lines.append(f"{i}. <b>{esc(name)}</b>{extra}{inactive_mark}")
 
     header = f"📋 Список класса ({len(students)} чел.):"
     return header + "\n" + "\n".join(lines)

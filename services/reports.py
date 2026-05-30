@@ -5,7 +5,8 @@ from collections import defaultdict
 
 from sheets.client import _to_float, get_client
 from sheets.schema import CONTRIB_PREFIX, EXPENSE_PREFIX, COL_STUDENT
-from services.students import get_all_students, resolve_student
+from services.students import resolve_student
+from utils.text import esc
 
 log = logging.getLogger(__name__)
 
@@ -107,14 +108,14 @@ async def report_contributions_by_student() -> str:
     if paid:
         lines.append(f"\n✅ Сдавали ({len(paid)} чел.):")
         for name, total, _ in paid:
-            lines.append(f"  • <b>{name}</b> — {total:.0f} руб.")
+            lines.append(f"  • <b>{esc(name)}</b> — {total:.0f} руб.")
     else:
         lines.append("\nВзносов пока нет.")
 
     if not_paid:
         lines.append(f"\n❌ Не сдавали ({len(not_paid)} чел.):")
         for name in not_paid:
-            lines.append(f"  • {name}")
+            lines.append(f"  • {esc(name)}")
 
     grand = sum(t for _, t, _ in paid)
     lines.append(f"\n<b>Всего взносов: {grand:.2f} руб.</b>")
@@ -132,7 +133,7 @@ async def report_contributions_list() -> str:
     items = [(name, total) for name, total in items if total > 0]
     if not items:
         return "Взносов пока нет."
-    lines = [f"  • {name}: <b>{total:.2f} руб.</b>" for name, total in items]
+    lines = [f"  • {esc(name)}: <b>{total:.2f} руб.</b>" for name, total in items]
     grand = sum(t for _, t in items)
     return "💵 <b>Взносы:</b>\n" + "\n".join(lines) + f"\n\n<b>Итого: {grand:.2f} руб.</b>"
 
@@ -148,7 +149,7 @@ async def report_expenses_list() -> str:
     items = [(name, total) for name, total in items if total > 0]
     if not items:
         return "Трат пока нет."
-    lines = [f"  • {name}: <b>{total:.2f} руб.</b>" for name, total in items]
+    lines = [f"  • {esc(name)}: <b>{total:.2f} руб.</b>" for name, total in items]
     grand = sum(t for _, t in items)
     return "💸 <b>Траты:</b>\n" + "\n".join(lines) + f"\n\n<b>Итого: {grand:.2f} руб.</b>"
 
@@ -187,7 +188,7 @@ async def report_class_finance() -> str:
         total_e += e
         sign = "+" if bal >= 0 else ""
         lines.append(
-            f"  <b>{name}</b>\n"
+            f"  <b>{esc(name)}</b>\n"
             f"    взносы: {c:.0f} / траты: {e:.0f} / баланс: {sign}{bal:.0f} руб."
         )
 
@@ -205,14 +206,14 @@ async def report_class_finance() -> str:
 async def report_student(query: str) -> str:
     name, _, ambiguous = await resolve_student(query)
     if ambiguous:
-        return "Уточните:\n" + "\n".join(f"• {n}" for n in ambiguous)
+        return "Уточните:\n" + "\n".join(f"• {esc(n)}" for n in ambiguous)
     if name is None:
-        return f"Ученик <b>«{query}»</b> не найден."
+        return f"Ученик <b>«{esc(query)}»</b> не найден."
 
     contrib_cols, expense_cols, rows = await _finance_matrix()
     student_row = next((row for _, row in rows if row.get(COL_STUDENT) == name), None)
     if student_row is None:
-        return f"Данные по <b>{name}</b> отсутствуют в «Финансы»."
+        return f"Данные по <b>{esc(name)}</b> отсутствуют в «Финансы»."
 
     contributions = 0.0
     expenses = 0.0
@@ -221,18 +222,18 @@ async def report_student(query: str) -> str:
         v = _to_float(student_row.get(col, ""))
         if v:
             contributions += v
-            details.append(f"  💵 {_strip(col, CONTRIB_PREFIX)}: +{v:.2f}")
+            details.append(f"  💵 {esc(_strip(col, CONTRIB_PREFIX))}: +{v:.2f}")
     for col in expense_cols:
         v = _to_float(student_row.get(col, ""))
         if v:
             expenses += v
-            details.append(f"  💸 {_strip(col, EXPENSE_PREFIX)}: {v:.2f}")
+            details.append(f"  💸 {esc(_strip(col, EXPENSE_PREFIX))}: {v:.2f}")
 
     balance = contributions - expenses
     emoji = "🟢" if balance >= 0 else "🔴"
     detail_str = "\n".join(details) if details else "  (нет данных)"
     return (
-        f"👤 <b>Отчёт по {name}:</b>\n{detail_str}\n\n"
+        f"👤 <b>Отчёт по {esc(name)}:</b>\n{detail_str}\n\n"
         f"  Взносы: <b>{contributions:.2f} руб.</b>\n"
         f"  Траты:  <b>{expenses:.2f} руб.</b>\n"
         f"  {emoji} Баланс: <b>{balance:.2f} руб.</b>"
@@ -240,8 +241,10 @@ async def report_student(query: str) -> str:
 
 
 async def report_paid(purpose: str | None, paid: bool) -> str:
-    all_students = await get_all_students()
-    all_names = {s[COL_STUDENT] for s in all_students}
+    from services.students import get_active_students
+
+    active_students = await get_active_students()
+    all_names = {s[COL_STUDENT] for s in active_students}
 
     if purpose:
         # Ищем колонку «Взнос: <purpose>»
@@ -253,11 +256,11 @@ async def report_paid(purpose: str | None, paid: bool) -> str:
             col_name = purpose
 
         if paid:
-            names = sorted(n for n, v in col_values.items() if v > 0)
-            header = f"✅ Сдали на «{_strip(col_name, CONTRIB_PREFIX)}» ({len(names)} чел.):"
+            names = sorted(n for n, v in col_values.items() if v > 0 and n in all_names)
+            header = f"✅ Сдали на «{esc(_strip(col_name, CONTRIB_PREFIX))}» ({len(names)} чел.):"
         else:
             names = sorted(n for n in all_names if col_values.get(n, 0) <= 0)
-            header = f"❌ Не сдали на «{_strip(col_name, CONTRIB_PREFIX)}» ({len(names)} чел.):"
+            header = f"❌ Не сдали на «{esc(_strip(col_name, CONTRIB_PREFIX))}» ({len(names)} чел.):"
     else:
         # Без конкретного назначения: проверяем любой взнос
         contrib_cols, _, rows = await _finance_matrix()
@@ -275,4 +278,4 @@ async def report_paid(purpose: str | None, paid: bool) -> str:
 
     if not names:
         return header + "\nСписок пуст."
-    return header + "\n" + "\n".join(f"  • {n}" for n in names)
+    return header + "\n" + "\n".join(f"  • {esc(n)}" for n in names)
