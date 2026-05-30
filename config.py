@@ -1,7 +1,7 @@
 from enum import StrEnum
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,8 +20,10 @@ class Settings(BaseSettings):
 
     # --- Telegram ---
     telegram_bot_token: str
-    # Whitelist Telegram user-id (через запятую в .env); пусто = НИКОГО не пускать
-    allowed_user_ids: set[int] = set()
+    # Whitelist Telegram user-id (через запятую в .env); пусто = НИКОГО не пускать.
+    # Храним как строку, чтобы pydantic-settings не пытался JSON-декодировать
+    # сложный тип (set/list) из .env. Парсинг — в свойстве allowed_user_ids ниже.
+    allowed_user_ids_raw: str = Field(default="", validation_alias="allowed_user_ids")
 
     # --- LLM ---
     llm_backend: LLMBackend = LLMBackend.OPENAI
@@ -44,16 +46,12 @@ class Settings(BaseSettings):
     log_max_bytes: int = 5 * 1024 * 1024
     log_backup_count: int = 7
 
-    @field_validator("allowed_user_ids", mode="before")
-    @classmethod
-    def _parse_user_ids(cls, v):
-        if v is None or v == "":
+    @property
+    def allowed_user_ids(self) -> set[int]:
+        v = self.allowed_user_ids_raw
+        if not v:
             return set()
-        if isinstance(v, str):
-            return {int(x) for x in v.replace(";", ",").split(",") if x.strip()}
-        if isinstance(v, (set, list, tuple)):
-            return {int(x) for x in v}
-        return v
+        return {int(x) for x in v.replace(";", ",").split(",") if x.strip()}
 
 
 def load_settings() -> Settings:
