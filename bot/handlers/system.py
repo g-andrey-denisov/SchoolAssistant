@@ -76,6 +76,33 @@ async def cmd_help(message: Message) -> None:
     await message.answer(HELP_TEXT)
 
 
+# ── Команды-ярлыки: строят интент напрямую, без вызова LLM ────────────────
+
+
+@router.message(Command("balance"))
+async def cmd_balance(message: Message, state: FSMContext) -> None:
+    from bot.handlers.messages import _safe_dispatch
+    from llm.intents import IntentAction, SheetIntent
+
+    await _safe_dispatch(message, state, SheetIntent(action=IntentAction.REPORT_BALANCE))
+
+
+@router.message(Command("report"))
+async def cmd_report(message: Message, state: FSMContext) -> None:
+    from bot.handlers.messages import _safe_dispatch
+    from llm.intents import IntentAction, SheetIntent
+
+    await _safe_dispatch(message, state, SheetIntent(action=IntentAction.REPORT_CLASS_FINANCE))
+
+
+@router.message(Command("birthdays"))
+async def cmd_birthdays(message: Message, state: FSMContext) -> None:
+    from bot.handlers.messages import _safe_dispatch
+    from llm.intents import IntentAction, SheetIntent
+
+    await _safe_dispatch(message, state, SheetIntent(action=IntentAction.BIRTHDAY_UPCOMING))
+
+
 @router.message(Command("reset", "cancel"))
 async def cmd_reset(message: Message, state: FSMContext) -> None:
     current = await state.get_state()

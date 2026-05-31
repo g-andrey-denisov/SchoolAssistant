@@ -13,6 +13,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
+from bot.commands import setup_bot_profile
 from bot.handlers import register_all_handlers
 from bot.middlewares.auth_mw import AuthMiddleware
 from bot.middlewares.logging_mw import LoggingMiddleware
@@ -72,6 +73,8 @@ async def main() -> None:
     dp.message.middleware(AuthMiddleware())
     dp.callback_query.middleware(AuthMiddleware())
     register_all_handlers(dp)
+
+    await setup_bot_profile(bot)
 
     log.info("Начинаем polling…")
     try:
