@@ -15,5 +15,8 @@ pydantic-settings==2.4.0
 # Fuzzy name matching
 rapidfuzz==3.9.7
 
+# Excel parsing (сверка списков из .xlsx)
+openpyxl==3.1.5
+
 # Auto-reload in dev
 watchfiles==0.24.0

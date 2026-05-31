@@ -3,9 +3,9 @@
 исходников (.py), конфига (.env) или учётных данных (credentials/*.json).
 
 Запуск:
-    python guard.py
+    python run.py
 
-На Debian (systemd): ExecStart=%(venv)s/bin/python guard.py
+На Debian (systemd): ExecStart=%(venv)s/bin/python run.py
 """
 
 import logging
@@ -20,7 +20,7 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-log = logging.getLogger("guard")
+log = logging.getLogger("run")
 
 ROOT = Path(__file__).resolve().parent
 PYTHON = sys.executable

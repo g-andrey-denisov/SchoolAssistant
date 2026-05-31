@@ -47,6 +47,11 @@ async def get_all_students() -> list[dict]:
     return await get_client().get_contacts()
 
 
+async def get_students_indexed() -> list[tuple[int, dict]]:
+    """[(row_num, row_dict), ...] — нужен для сверки списков (знать номер строки)."""
+    return await get_client().get_contacts_indexed()
+
+
 async def get_active_students() -> list[dict]:
     return [s for s in await get_all_students() if not _is_inactive(s)]
 
