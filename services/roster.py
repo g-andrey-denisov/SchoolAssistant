@@ -52,7 +52,10 @@ def _classify_header(cell: str) -> str | None:
         return COL_BIRTHDAY
     if s == "пол" or s.startswith("пол "):
         return COL_GENDER
-    if any(k in s for k in ("фио", "ф.и.о", "ученик", "фамил", "имя")):
+    if any(k in s for k in (
+        "фио", "ф.и.о", "ученик", "фамил", "имя",
+        "ребён", "ребен", "студент",
+    )):
         return COL_STUDENT
     return None
 
