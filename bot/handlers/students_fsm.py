@@ -31,7 +31,7 @@ def _gender_label(value: str) -> str:
         return "мужской"
     if g == GENDER_FEMALE:
         return "женский"
-    return "—"
+    return "не указан"
 
 
 def _student_summary(data: dict) -> str:

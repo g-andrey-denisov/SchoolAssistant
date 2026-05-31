@@ -27,11 +27,20 @@ def _count_genders(students: list[dict]) -> tuple[int, int]:
 
 
 def _gender_footer(students: list[dict]) -> str:
-    """Строка с количеством мальчиков и девочек (если пол хоть где-то указан)."""
-    boys, girls = _count_genders(students)
-    if not boys and not girls:
+    """Подвал с разбивкой по полу. Всегда сообщает об учениках без указанного пола."""
+    if not students:
         return ""
-    return f"\n\n👦 Мальчиков: <b>{boys}</b> | 👧 Девочек: <b>{girls}</b>"
+    boys, girls = _count_genders(students)
+    unspecified = len(students) - boys - girls
+
+    # Пол не указан ни у кого — сообщаем об этом отдельно
+    if not boys and not girls:
+        return f"\n\n⚧ Пол не указан ни у кого из <b>{len(students)}</b> учеников."
+
+    footer = f"\n\n👦 Мальчиков: <b>{boys}</b> | 👧 Девочек: <b>{girls}</b>"
+    if unspecified:
+        footer += f" | ⚧ не указан: <b>{unspecified}</b>"
+    return footer
 
 
 async def get_all_students() -> list[dict]:
@@ -138,6 +147,11 @@ async def count_by_gender(gender: str) -> str:
     """Текстовый ответ на «Сколько мальчиков/девочек» (по активным ученикам)."""
     active = await get_active_students()
     boys, girls = _count_genders(active)
+    unspecified = len(active) - boys - girls
     if gender == "Ж":
-        return f"👧 Девочек в классе: <b>{girls}</b> (из {len(active)} активных)."
-    return f"👦 Мальчиков в классе: <b>{boys}</b> (из {len(active)} активных)."
+        msg = f"👧 Девочек в классе: <b>{girls}</b> (из {len(active)} активных)."
+    else:
+        msg = f"👦 Мальчиков в классе: <b>{boys}</b> (из {len(active)} активных)."
+    if unspecified:
+        msg += f"\n⚧ Учеников с неуказанным полом: <b>{unspecified}</b>."
+    return msg
