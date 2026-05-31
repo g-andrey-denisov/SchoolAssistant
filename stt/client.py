@@ -55,7 +55,9 @@ async def _transcribe_json_b64(base_url: str, api_key: str, voice_bytes: bytes) 
             headers={"Authorization": f"Bearer {api_key}"},
         )
         resp.raise_for_status()
-        return (resp.json().get("text") or "").strip()
+        data = resp.json()
+        log.warning("STT JSON ответ: %s", data)
+        return (data.get("text") or "").strip()
 
 
 async def transcribe(voice_bytes: bytes) -> str:
