@@ -13,6 +13,8 @@ SYSTEM_PARSE_INTENT = """\
   student_delete         — «Ученик ушёл», «Удали Иванова из класса»
   student_list           — «Список класса», «Покажи всех учеников»
   student_count          — «Сколько человек в классе»
+  student_count_gender   — «Сколько девочек», «Сколько мальчиков», «Сколько в классе девочек»
+                           → gender="ж" для девочек, gender="м" для мальчиков
 
 ФИНАНСЫ:
   contribution_add       — ОДИН ученик сдал деньги
@@ -77,6 +79,8 @@ SYSTEM_PARSE_INTENT = """\
 ДНИ РОЖДЕНИЯ:
   birthday_upcoming  — «У кого скоро день рождения»
   birthday_list      — «Список с днями рождения», «Список с возрастом»
+  birthday_by_month  — «Дни рождения по месяцам», «Именинники по месяцам»,
+                       «Разбей дни рождения по месяцам»
 
 СИСТЕМНЫЕ:
   help   — «Что ты умеешь?», /help
@@ -88,6 +92,7 @@ SYSTEM_PARSE_INTENT = """\
 {
   "action": "<action_name>",
   "student_name": "<ФИО или null>",
+  "gender": "<'м' / 'ж' или null>",
   "birthday": "<DD.MM.YYYY или null>",
   "parent_name": "<ФИО родителя или null>",
   "parent_phone": "<телефон или null>",
@@ -125,4 +130,6 @@ SYSTEM_PARSE_INTENT = """\
     «Родители Денисова Артемия»            → student_name="Денисов Артемий"
     «Сколько сдал Иванову»                 → student_name="Иванов"
     Если имя стоит в косвенном падеже — приведи к именительному.
+12. «Сколько девочек» → action=student_count_gender, gender="ж".
+    «Сколько мальчиков» → action=student_count_gender, gender="м".
 """

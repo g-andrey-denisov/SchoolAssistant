@@ -4,6 +4,7 @@ from aiogram.fsm.state import State, StatesGroup
 class AddStudentForm(StatesGroup):
     """Пошаговый диалог добавления ученика."""
     full_name = State()
+    gender = State()
     birthday = State()
     parent_name = State()
     parent_phone = State()

@@ -13,6 +13,7 @@ class IntentAction(StrEnum):
     STUDENT_DELETE = "student_delete"
     STUDENT_LIST = "student_list"
     STUDENT_COUNT = "student_count"
+    STUDENT_COUNT_GENDER = "student_count_gender"  # «Сколько девочек / мальчиков»
 
     # ── Финансы ───────────────────────────────────────────────────────────
     CONTRIBUTION_ADD = "contribution_add"        # «Петров сдал 500 на подарки»
@@ -42,6 +43,7 @@ class IntentAction(StrEnum):
     # ── Дни рождения ──────────────────────────────────────────────────────
     BIRTHDAY_UPCOMING = "birthday_upcoming"
     BIRTHDAY_LIST = "birthday_list"
+    BIRTHDAY_BY_MONTH = "birthday_by_month"  # «Дни рождения по месяцам»
 
     # ── Системные ─────────────────────────────────────────────────────────
     HELP = "help"
@@ -54,6 +56,9 @@ class SheetIntent(BaseModel):
 
     # Ученик
     student_name: str | None = Field(default=None, description="ФИО ученика")
+    gender: str | None = Field(
+        default=None, description="Пол: 'м' (мальчики) или 'ж' (девочки)"
+    )
     birthday: str | None = Field(default=None, description="Дата рождения DD.MM.YYYY")
     parent_name: str | None = Field(default=None, description="ФИО родителя")
     parent_phone: str | None = Field(default=None, description="Телефон родителя")

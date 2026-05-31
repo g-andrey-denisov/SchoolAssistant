@@ -19,12 +19,44 @@ COL_BIRTHDAY    = "День рождения"
 COL_PARENT_NAME = "ФИО родителя"
 COL_PARENT_PHONE = "Телефон"
 COL_NOTE        = "Примечание"
+COL_GENDER      = "Пол"
 
 # Если это слово содержится в Примечании — ученик неактивен
 INACTIVE_MARKER = "не ходит"
 
-# Порядок столбцов при добавлении нового ученика
-CONTACTS_COLUMNS = [COL_STUDENT, COL_BIRTHDAY, COL_PARENT_NAME, COL_PARENT_PHONE, COL_NOTE]
+# Порядок столбцов при добавлении нового ученика.
+# COL_GENDER добавлен ПОСЛЕДНИМ намеренно: маппинг строк позиционный
+# (_map_contacts_row), поэтому новый столбец в конце не сдвигает уже
+# заполненные данные в существующих таблицах.
+CONTACTS_COLUMNS = [COL_STUDENT, COL_BIRTHDAY, COL_PARENT_NAME, COL_PARENT_PHONE, COL_NOTE, COL_GENDER]
+
+# ── Пол ученика ──────────────────────────────────────────────────────────────
+# В таблице хранится одной буквой: «М» / «Ж».
+GENDER_MALE   = "М"
+GENDER_FEMALE = "Ж"
+
+_MALE_TOKENS = {"м", "муж", "мужской", "мальчик", "male", "boy", "m"}
+_FEMALE_TOKENS = {"ж", "жен", "женский", "девочка", "female", "girl", "f", "w"}
+
+
+def parse_gender(text: str | None) -> str | None:
+    """Нормализует свободный ввод/хранимое значение к «М»/«Ж» или None."""
+    if not text:
+        return None
+    t = text.strip().lower().rstrip(".")
+    if t in _MALE_TOKENS:
+        return GENDER_MALE
+    if t in _FEMALE_TOKENS:
+        return GENDER_FEMALE
+    return None
+
+
+def is_male(value: str | None) -> bool:
+    return parse_gender(value) == GENDER_MALE
+
+
+def is_female(value: str | None) -> bool:
+    return parse_gender(value) == GENDER_FEMALE
 
 # ── Лист «Финансы» ─────────────────────────────────────────────────────────
 # Первый столбец = COL_STUDENT (фиксирован)

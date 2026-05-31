@@ -84,3 +84,48 @@ async def birthday_list(include_ages: bool = True) -> str:
     if no_bday:
         result += f"\n\n<i>Дата не указана: {', '.join(esc(x) for x in no_bday)}</i>"
     return result
+
+
+_MONTH_NAMES = [
+    "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+    "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
+]
+
+
+async def birthdays_by_month() -> str:
+    """Помесячная разбивка: под каждым месяцем — ученики с их датой рождения."""
+    students = await get_client().get_contacts()
+    by_month: dict[int, list[tuple[int, str, str]]] = {m: [] for m in range(1, 13)}
+    no_bday: list[str] = []
+
+    for s in students:
+        name = s.get(COL_STUDENT, "").strip()
+        if not name:
+            continue
+        bday_str = s.get(COL_BIRTHDAY, "").strip()
+        bday = parse_date(bday_str) if bday_str else None
+        if bday is None:
+            no_bday.append(name)
+            continue
+        by_month[bday.month].append((bday.day, name, bday_str))
+
+    blocks = []
+    total = 0
+    for m in range(1, 13):
+        entries = by_month[m]
+        if not entries:
+            continue
+        entries.sort(key=lambda x: x[0])
+        total += len(entries)
+        body = "\n".join(
+            f"  • <b>{esc(name)}</b> — {bday_str}" for _, name, bday_str in entries
+        )
+        blocks.append(f"<b>{_MONTH_NAMES[m - 1]}</b> ({len(entries)}):\n{body}")
+
+    if not blocks:
+        return "Ни у кого не указана дата рождения."
+
+    result = f"📅 <b>Дни рождения по месяцам ({total}):</b>\n\n" + "\n\n".join(blocks)
+    if no_bday:
+        result += f"\n\n<i>Дата не указана: {', '.join(esc(x) for x in no_bday)}</i>"
+    return result

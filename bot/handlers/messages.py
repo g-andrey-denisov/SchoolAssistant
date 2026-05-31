@@ -283,6 +283,12 @@ async def _dispatch(message: Message, state: FSMContext, intent: SheetIntent) ->
         )
         return
 
+    if action == IntentAction.STUDENT_COUNT_GENDER:
+        from sheets.schema import GENDER_FEMALE, parse_gender
+        gender = parse_gender(intent.gender) or GENDER_FEMALE
+        await message.answer(await students_svc.count_by_gender(gender))
+        return
+
     # ── Финансы ───────────────────────────────────────────────────────────
 
     if action == IntentAction.CONTRIBUTION_ADD:
@@ -450,6 +456,9 @@ async def _dispatch(message: Message, state: FSMContext, intent: SheetIntent) ->
         return
     if action == IntentAction.BIRTHDAY_LIST:
         await message.answer(await bday_svc.birthday_list(include_ages=intent.include_ages))
+        return
+    if action == IntentAction.BIRTHDAY_BY_MONTH:
+        await message.answer(await bday_svc.birthdays_by_month())
         return
 
     # ── Системные ─────────────────────────────────────────────────────────

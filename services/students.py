@@ -5,8 +5,9 @@ from datetime import date
 
 from sheets.client import get_client
 from sheets.schema import (
-    COL_BIRTHDAY, COL_NOTE, COL_PARENT_NAME,
+    COL_BIRTHDAY, COL_GENDER, COL_NOTE, COL_PARENT_NAME,
     COL_PARENT_PHONE, COL_STUDENT, INACTIVE_MARKER, CONTACTS_COLUMNS,
+    is_female, is_male,
 )
 from utils.fuzzy import find_best_with_ambiguity
 from utils.text import esc
@@ -16,6 +17,21 @@ log = logging.getLogger(__name__)
 
 def _is_inactive(row: dict) -> bool:
     return INACTIVE_MARKER in row.get(COL_NOTE, "").lower()
+
+
+def _count_genders(students: list[dict]) -> tuple[int, int]:
+    """Возвращает (мальчиков, девочек) среди переданных учеников."""
+    boys = sum(1 for s in students if is_male(s.get(COL_GENDER, "")))
+    girls = sum(1 for s in students if is_female(s.get(COL_GENDER, "")))
+    return boys, girls
+
+
+def _gender_footer(students: list[dict]) -> str:
+    """Строка с количеством мальчиков и девочек (если пол хоть где-то указан)."""
+    boys, girls = _count_genders(students)
+    if not boys and not girls:
+        return ""
+    return f"\n\n👦 Мальчиков: <b>{boys}</b> | 👧 Девочек: <b>{girls}</b>"
 
 
 async def get_all_students() -> list[dict]:
@@ -108,7 +124,7 @@ async def format_student_list(
         lines.append(f"{i}. <b>{esc(name)}</b>{extra}{inactive_mark}")
 
     header = f"📋 Список класса ({len(students)} чел.):"
-    return header + "\n" + "\n".join(lines)
+    return header + "\n" + "\n".join(lines) + _gender_footer(students)
 
 
 async def count_students() -> tuple[int, int]:
@@ -116,3 +132,12 @@ async def count_students() -> tuple[int, int]:
     students = await get_all_students()
     active = sum(1 for s in students if not _is_inactive(s))
     return len(students), active
+
+
+async def count_by_gender(gender: str) -> str:
+    """Текстовый ответ на «Сколько мальчиков/девочек» (по активным ученикам)."""
+    active = await get_active_students()
+    boys, girls = _count_genders(active)
+    if gender == "Ж":
+        return f"👧 Девочек в классе: <b>{girls}</b> (из {len(active)} активных)."
+    return f"👦 Мальчиков в классе: <b>{boys}</b> (из {len(active)} активных)."
