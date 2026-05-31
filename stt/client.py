@@ -1,41 +1,66 @@
 """
-STT-клиент: транскрибирует голосовое сообщение через Whisper-эндпоинт LM Studio.
+STT-клиент: транскрибирует голосовое сообщение через Whisper-эндпоинт.
 
-LM Studio поднимает /v1/audio/transcriptions при загруженной Whisper-модели.
-Используем тот же base_url, что и LLM-клиент.
+Локальные серверы (LM Studio и аналоги) требуют JSON + base64-аудио.
+OpenAI API работает через SDK (multipart/form-data).
 """
 
+import base64
 import io
 import logging
 
+import httpx
 from openai import AsyncOpenAI
 
 from config import LLMBackend, settings
 
 log = logging.getLogger(__name__)
 
+_openai_client: AsyncOpenAI | None = None
 
-def _make_stt_client() -> AsyncOpenAI:
-    # Явный STT_BASE_URL имеет наивысший приоритет (любой OpenAI-совместимый сервер)
+
+def _get_openai_client() -> AsyncOpenAI:
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = AsyncOpenAI(
+            api_key=settings.openai_api_key,
+            timeout=settings.stt_timeout,
+        )
+    return _openai_client
+
+
+def _local_stt_config() -> tuple[str, str] | None:
+    """Возвращает (base_url, api_key) если используется локальный STT-сервер, иначе None."""
     if settings.stt_base_url:
-        return AsyncOpenAI(
-            base_url=settings.stt_base_url,
-            api_key="lm-studio",
-            timeout=settings.stt_timeout,
-        )
+        return settings.stt_base_url.rstrip("/"), "lm-studio"
     if settings.llm_backend == LLMBackend.LMSTUDIO:
-        return AsyncOpenAI(
-            base_url=settings.lmstudio_base_url,
-            api_key="lm-studio",
-            timeout=settings.stt_timeout,
+        return settings.lmstudio_base_url.rstrip("/"), "lm-studio"
+    return None
+
+
+async def _transcribe_local(voice_bytes: bytes, base_url: str, api_key: str) -> str:
+    """Отправляет аудио как base64 JSON — формат, который принимают локальные серверы."""
+    audio_b64 = base64.b64encode(voice_bytes).decode()
+    async with httpx.AsyncClient(timeout=settings.stt_timeout) as client:
+        resp = await client.post(
+            f"{base_url}/audio/transcriptions",
+            json={"model": settings.stt_model, "file": audio_b64, "language": "ru"},
+            headers={"Authorization": f"Bearer {api_key}"},
         )
-    return AsyncOpenAI(
-        api_key=settings.openai_api_key,
-        timeout=settings.stt_timeout,
+        resp.raise_for_status()
+        return (resp.json().get("text") or "").strip()
+
+
+async def _transcribe_openai(voice_bytes: bytes) -> str:
+    """Отправляет аудио через OpenAI SDK (multipart/form-data)."""
+    audio = io.BytesIO(voice_bytes)
+    audio.name = "voice.ogg"
+    response = await _get_openai_client().audio.transcriptions.create(
+        model=settings.stt_model,
+        file=audio,
+        language="ru",
     )
-
-
-_stt_client: AsyncOpenAI = _make_stt_client()
+    return (response.text or "").strip()
 
 
 async def transcribe(voice_bytes: bytes) -> str:
@@ -43,16 +68,14 @@ async def transcribe(voice_bytes: bytes) -> str:
     Транскрибирует OGG/Opus аудио (из Telegram) в текст.
     Возвращает пустую строку, если распознавание не дало результата.
     """
-    audio = io.BytesIO(voice_bytes)
-    audio.name = "voice.ogg"  # Whisper определяет формат по расширению
-
     log.debug("STT: отправляю %d байт на транскрипцию (модель=%s)", len(voice_bytes), settings.stt_model)
 
-    response = await _stt_client.audio.transcriptions.create(
-        model=settings.stt_model,
-        file=audio,
-        language="ru",
-    )
-    text = (response.text or "").strip()
+    local = _local_stt_config()
+    if local:
+        base_url, api_key = local
+        text = await _transcribe_local(voice_bytes, base_url, api_key)
+    else:
+        text = await _transcribe_openai(voice_bytes)
+
     log.info("STT: распознано %r", text[:120])
     return text
