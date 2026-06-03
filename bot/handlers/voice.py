@@ -3,9 +3,11 @@
 
 Поток:
   1. Скачиваем OGG/Opus файл из Telegram
-  2. Транскрибируем через Whisper (LM Studio или OpenAI)
+  2. Транскрибируем через Whisper (openai / custom)
   3. Показываем пользователю распознанный текст
   4. Прогоняем текст через parse_intent → _safe_dispatch (как обычное сообщение)
+
+При STT_BACKEND=disabled голосовые сообщения отклоняются без транскрипции.
 """
 
 import logging
@@ -16,6 +18,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 from aiogram.types import Message
 
+from config import STTBackend, settings
 from llm.client import parse_intent
 from stt.client import transcribe
 
@@ -27,6 +30,10 @@ router = Router(name="voice")
 
 @router.message(StateFilter(default_state), F.voice)
 async def handle_voice(message: Message, state: FSMContext) -> None:
+    if settings.stt_backend == STTBackend.DISABLED:
+        await message.answer("🎙 Голосовые сообщения отключены. Напишите запрос текстом.")
+        return
+
     thinking = await message.answer("🎙 Распознаю голосовое…")
 
     # Скачиваем аудиофайл
@@ -46,7 +53,7 @@ async def handle_voice(message: Message, state: FSMContext) -> None:
         log.error("STT: ошибка транскрипции: %s", exc)
         await thinking.edit_text(
             "⚠️ Не удалось распознать речь.\n"
-            "Убедитесь, что в LM Studio загружена Whisper-модель."
+            "Убедитесь, что STT-сервер доступен и модель загружена."
         )
         return
 

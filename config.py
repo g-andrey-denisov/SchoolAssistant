@@ -10,6 +10,12 @@ class LLMBackend(StrEnum):
     LMSTUDIO = "lmstudio"
 
 
+class STTBackend(StrEnum):
+    OPENAI = "openai"    # облачный OpenAI Whisper
+    CUSTOM = "custom"    # OpenAI-совместимый сервер (speaches, whisper.cpp и т.п.)
+    DISABLED = "disabled"  # голосовые сообщения отключены
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -33,10 +39,11 @@ class Settings(BaseSettings):
     lmstudio_model: str = "qwen3.5-9b-claude-4.6-highiq-instruct"
     llm_timeout: float = 60.0
 
-    # --- STT (Whisper через LM Studio или OpenAI) ---
+    # --- STT (Whisper) ---
+    stt_backend: STTBackend = STTBackend.OPENAI
     stt_model: str = "whisper-large-v3"
     stt_timeout: float = 60.0
-    # Если задан — STT идёт на этот сервер; иначе используется lmstudio_base_url
+    # URL для STT_BACKEND=custom (OpenAI-совместимый whisper-сервер)
     stt_base_url: str = ""
 
     # --- Google Sheets ---
