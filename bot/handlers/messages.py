@@ -284,8 +284,11 @@ async def _dispatch(message: Message, state: FSMContext, intent: SheetIntent) ->
         return
 
     if action == IntentAction.STUDENT_COUNT_GENDER:
-        from sheets.schema import GENDER_FEMALE, parse_gender
-        gender = parse_gender(intent.gender) or GENDER_FEMALE
+        from sheets.schema import parse_gender
+        # Если пол не распознан однозначно (например, в вопросе упомянуты
+        # ОБА пола — «сколько мальчиков и девочек») — НЕ подставляем пол
+        # по умолчанию, а показываем полную разбивку по обоим.
+        gender = parse_gender(intent.gender)
         await message.answer(await students_svc.count_by_gender(gender))
         return
 

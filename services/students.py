@@ -148,15 +148,22 @@ async def count_students() -> tuple[int, int]:
     return len(students), active
 
 
-async def count_by_gender(gender: str) -> str:
-    """Текстовый ответ на «Сколько мальчиков/девочек» (по активным ученикам)."""
+async def count_by_gender(gender: str | None) -> str:
+    """
+    Текстовый ответ на «Сколько мальчиков/девочек» (по активным ученикам).
+    gender=None — пол не удалось однозначно определить (например, в вопросе
+    упомянуты ОБА пола сразу) → отвечаем полной разбивкой, а не гадаем.
+    """
     active = await get_active_students()
     boys, girls = _count_genders(active)
     unspecified = len(active) - boys - girls
-    if gender == "Ж":
+
+    if gender == "М":
+        msg = f"👦 Мальчиков в классе: <b>{boys}</b> (из {len(active)} активных)."
+    elif gender == "Ж":
         msg = f"👧 Девочек в классе: <b>{girls}</b> (из {len(active)} активных)."
     else:
-        msg = f"👦 Мальчиков в классе: <b>{boys}</b> (из {len(active)} активных)."
+        msg = f"👦 Мальчиков: <b>{boys}</b> | 👧 Девочек: <b>{girls}</b> (из {len(active)} активных)."
     if unspecified:
         msg += f"\n⚧ Учеников с неуказанным полом: <b>{unspecified}</b>."
     return msg
