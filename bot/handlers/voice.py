@@ -19,7 +19,7 @@ from aiogram.fsm.state import default_state
 from aiogram.types import Message
 
 from config import STTBackend, settings
-from llm.client import parse_intent
+from llm.client import LLMUnavailableError, parse_intent
 from stt.client import transcribe
 
 from .messages import _safe_dispatch
@@ -66,6 +66,10 @@ async def handle_voice(message: Message, state: FSMContext) -> None:
 
     try:
         intent = await parse_intent(text)
+    except LLMUnavailableError as exc:
+        log.error("STT → LLM недоступен: %s", exc)
+        await thinking.edit_text(f"🎙 <i>«{text}»</i>\n⚠️ ИИ-сервис сейчас недоступен. Попробуйте через минуту.")
+        return
     except Exception as exc:
         log.error("STT → parse_intent: %s", exc)
         await thinking.edit_text(f"🎙 <i>«{text}»</i>\n⚠️ Не удалось разобрать запрос.")

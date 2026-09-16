@@ -10,13 +10,18 @@ import json
 import logging
 import re
 
-from openai import AsyncOpenAI
+from openai import APIError, AsyncOpenAI
+from pydantic import ValidationError
 
 from config import LLMBackend, settings
 from llm.intents import SheetIntent
 from llm.prompts import SYSTEM_PARSE_INTENT
 
 log = logging.getLogger(__name__)
+
+
+class LLMUnavailableError(Exception):
+    """LLM-сервер недоступен / сетевая или API-ошибка (не путать с «не понял запрос»)."""
 
 
 def _make_client() -> AsyncOpenAI:
@@ -86,7 +91,10 @@ _client: AsyncOpenAI = _make_client()
 async def parse_intent(user_text: str) -> SheetIntent:
     """
     Отправляет user_text в LLM и возвращает распознанный SheetIntent.
-    При сетевых / парсинг ошибках возвращает intent с action=unknown.
+    Если модель вернула мусор вместо JSON — считаем это «не поняла запрос»
+    и возвращаем intent с action=unknown.
+    Если LLM-сервер недоступен (сеть, таймаут, ошибка API) — поднимаем
+    LLMUnavailableError, чтобы вызывающий код не путал это с «не понял запрос».
     """
     model = _active_model()
     log.debug("LLM [%s/%s] запрос: %r", settings.llm_backend, model, user_text[:120])
@@ -110,9 +118,14 @@ async def parse_intent(user_text: str) -> SheetIntent:
         log.info("Разобран интент: action=%s | %s", intent.action, intent.raw_intent)
         return intent
 
-    except json.JSONDecodeError as exc:
-        log.error("LLM вернул невалидный JSON: %s | raw=%r", exc, raw[:200])
+    except (json.JSONDecodeError, ValidationError) as exc:
+        # Модель ответила, но не валидным интентом — это реальное «не понял запрос».
+        log.error("LLM вернул некорректный интент: %s | raw=%r", exc, raw[:200])
+        return SheetIntent(action="unknown", raw_intent="ошибка парсинга")
+    except APIError as exc:
+        log.error("Ошибка LLM API [%s/%s]: %s", settings.llm_backend, model, exc)
+        raise LLMUnavailableError(str(exc)) from exc
     except Exception as exc:
-        log.error("Ошибка LLM-запроса: %s", exc)
-
-    return SheetIntent(action="unknown", raw_intent="ошибка парсинга")
+        # Сетевые ошибки (таймаут, сервер недоступен и т.п.) — не путаем с «не понял».
+        log.error("LLM-сервер недоступен [%s/%s]: %s", settings.llm_backend, model, exc)
+        raise LLMUnavailableError(str(exc)) from exc

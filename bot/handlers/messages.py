@@ -16,7 +16,7 @@ from gspread.exceptions import APIError, SpreadsheetNotFound, WorksheetNotFound
 
 from bot.keyboards.inline import confirm_keyboard
 from bot.states import AddStudentForm, ClarifyingState, ConfirmAction
-from llm.client import parse_intent
+from llm.client import LLMUnavailableError, parse_intent
 from llm.intents import IntentAction, SheetIntent
 from services import birthdays as bday_svc
 from services import contacts as contacts_svc
@@ -161,6 +161,11 @@ async def handle_clarification(message: Message, state: FSMContext) -> None:
         thinking = await message.answer("⏳")
         try:
             new_intent = await parse_intent(text)
+        except LLMUnavailableError as exc:
+            log.error("LLM недоступен в clarification: %s", exc)
+            await thinking.delete()
+            await message.answer("⚠️ ИИ-сервис сейчас недоступен. Попробуйте через минуту.")
+            return
         except Exception as exc:
             log.exception("Ошибка parse_intent в clarification: %s", exc)
             await thinking.delete()
@@ -202,6 +207,11 @@ async def handle_text(message: Message, state: FSMContext) -> None:
     thinking = await message.answer("⏳")
     try:
         intent = await parse_intent(text)
+    except LLMUnavailableError as exc:
+        log.error("LLM недоступен: %s", exc)
+        await thinking.delete()
+        await message.answer("⚠️ ИИ-сервис сейчас недоступен. Попробуйте через минуту.")
+        return
     except Exception as exc:
         log.exception("Ошибка parse_intent: %s", exc)
         await thinking.delete()
