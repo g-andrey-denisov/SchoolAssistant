@@ -107,12 +107,17 @@ def _get_client(backend: LLMBackend) -> AsyncOpenAI:
 # параметры выборки, которые обычные chat-модели прекрасно принимают —
 # например, фиксируют temperature=1 и не разрешают его переопределять.
 # Вместо того чтобы перечислять такие модели вручную, при ошибке вида
-# "Unsupported value/parameter: '<param>'" просто убираем этот параметр
-# из запроса и пробуем ещё раз.
+# "Unsupported value/parameter: '<param>'" убираем этот параметр из запроса
+# и пробуем ещё раз, запоминая его per-модель, чтобы не тратить лишний
+# round-trip на каждый следующий запрос к той же модели.
 _MAX_PARAM_DROP_RETRIES = 4
+_unsupported_params: dict[str, set[str]] = {}
 
 
 async def _create_completion(client: AsyncOpenAI, model: str, user_text: str, **kwargs) -> str:
+    for param in _unsupported_params.get(model, ()):
+        kwargs.pop(param, None)
+
     for _ in range(_MAX_PARAM_DROP_RETRIES):
         try:
             response = await client.chat.completions.create(
@@ -133,6 +138,7 @@ async def _create_completion(client: AsyncOpenAI, model: str, user_text: str, **
                     "Модель %s не поддерживает параметр %r (%s) — повтор без него", model, param, code
                 )
                 kwargs.pop(param)
+                _unsupported_params.setdefault(model, set()).add(param)
                 continue
             raise
     raise RuntimeError(f"Не удалось подобрать параметры запроса к модели {model}")
