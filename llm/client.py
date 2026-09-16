@@ -10,7 +10,7 @@ import json
 import logging
 import re
 
-from openai import AsyncOpenAI
+from openai import APIError, AsyncOpenAI
 from pydantic import ValidationError
 
 from config import LLMBackend, settings
@@ -103,6 +103,41 @@ def _get_client(backend: LLMBackend) -> AsyncOpenAI:
     return client
 
 
+# Некоторые модели (o1/o3/gpt-5-«reasoning» и т.п.) отклоняют отдельные
+# параметры выборки, которые обычные chat-модели прекрасно принимают —
+# например, фиксируют temperature=1 и не разрешают его переопределять.
+# Вместо того чтобы перечислять такие модели вручную, при ошибке вида
+# "Unsupported value/parameter: '<param>'" просто убираем этот параметр
+# из запроса и пробуем ещё раз.
+_MAX_PARAM_DROP_RETRIES = 4
+
+
+async def _create_completion(client: AsyncOpenAI, model: str, user_text: str, **kwargs) -> str:
+    for _ in range(_MAX_PARAM_DROP_RETRIES):
+        try:
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PARSE_INTENT},
+                    {"role": "user", "content": user_text},
+                ],
+                **kwargs,
+            )
+            return response.choices[0].message.content or ""
+        except APIError as exc:
+            body = exc.body if isinstance(exc.body, dict) else {}
+            param = body.get("param")
+            code = body.get("code")
+            if code in ("unsupported_parameter", "unsupported_value") and param in kwargs:
+                log.warning(
+                    "Модель %s не поддерживает параметр %r (%s) — повтор без него", model, param, code
+                )
+                kwargs.pop(param)
+                continue
+            raise
+    raise RuntimeError(f"Не удалось подобрать параметры запроса к модели {model}")
+
+
 async def parse_intent(user_text: str) -> SheetIntent:
     """
     Отправляет user_text в LLM и возвращает распознанный SheetIntent.
@@ -135,14 +170,8 @@ async def parse_intent(user_text: str) -> SheetIntent:
 
         try:
             client = _get_client(backend)
-            response = await client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PARSE_INTENT},
-                    {"role": "user", "content": user_text},
-                ],
-                temperature=0,
-                **token_limit_kwarg,
+            raw = await _create_completion(
+                client, model, user_text, temperature=0, **token_limit_kwarg
             )
         except Exception as exc:
             # Сетевые ошибки, таймаут, ошибка API, отсутствие api_key и т.п. —
@@ -151,7 +180,6 @@ async def parse_intent(user_text: str) -> SheetIntent:
             errors.append(f"{backend}: {exc}")
             continue
 
-        raw = response.choices[0].message.content or ""
         log.debug("LLM ответ: %s", raw[:300])
 
         try:
