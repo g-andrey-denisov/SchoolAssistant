@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     lmstudio_model: str = "qwen3.5-9b-claude-4.6-highiq-instruct"
     llm_timeout: float = 60.0
 
+    # Резервный режим: если основной бэкенд (llm_backend) недоступен —
+    # пробовать следующий по очереди. Включается/настраивается отдельно.
+    llm_fallback_enabled: bool = False
+    # Очередь бэкендов через запятую. llm_backend всегда пробуется первым
+    # (даже если не указан здесь), остальные — в порядке перечисления.
+    llm_fallback_order: str = "openai,lmstudio"
+
     # --- STT (Whisper) ---
     stt_backend: STTBackend = STTBackend.OPENAI
     stt_model: str = "whisper-large-v3"
@@ -65,6 +72,23 @@ class Settings(BaseSettings):
         if not v:
             return set()
         return {int(x) for x in v.replace(";", ",").split(",") if x.strip()}
+
+    @property
+    def llm_fallback_backends(self) -> list[LLMBackend]:
+        """
+        Очередь бэкендов для перебора при llm_fallback_enabled=True.
+        Основной (llm_backend) всегда идёт первым, дальше — остальные
+        из llm_fallback_order в указанном порядке, без повторов.
+        """
+        order = [self.llm_backend]
+        for raw in self.llm_fallback_order.split(","):
+            name = raw.strip()
+            if not name:
+                continue
+            backend = LLMBackend(name)
+            if backend not in order:
+                order.append(backend)
+        return order
 
 
 def load_settings() -> Settings:

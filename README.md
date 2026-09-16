@@ -18,6 +18,7 @@ Telegram-бот с поддержкой естественного языка д
 - Разрешение конфликтов имён (Денисов А. → уточнение: Артемий или Арсений)
 - Подтверждение деструктивных операций
 - Два взаимозаменяемых LLM-бэкенда: OpenAI и локальный LM Studio
+- Резервный режим LLM: при недоступности основного бэкенда — автопереход на другой (`LLM_FALLBACK_ENABLED`)
 - Whitelist по Telegram user-id
 - Авто-перезапуск при изменении исходников (`run.py`)
 
@@ -169,6 +170,11 @@ OPENAI_MODEL=gpt-4o-mini
 # Для LM Studio (если LLM_BACKEND=lmstudio)
 # LMSTUDIO_BASE_URL=http://172.16.10.38:1234/v1
 # LMSTUDIO_MODEL=qwen3.5-9b-claude-4.6-highiq-instruct
+
+# Резервный режим LLM: если LLM_BACKEND недоступен — пробовать следующий
+# бэкенд из LLM_FALLBACK_ORDER (по умолчанию выключено)
+# LLM_FALLBACK_ENABLED=true
+# LLM_FALLBACK_ORDER=openai,lmstudio
 
 # STT (голосовые сообщения через Whisper) — опционально
 # STT_MODEL=whisper-large-v3
