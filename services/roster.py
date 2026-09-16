@@ -20,12 +20,13 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from rapidfuzz import fuzz, utils as fuzz_utils
+from rapidfuzz import fuzz
 
 from sheets.schema import (
     COL_BIRTHDAY, COL_GENDER, COL_PARENT_NAME, COL_PARENT_PHONE, COL_STUDENT,
     parse_gender,
 )
+from utils.fuzzy import normalize as _fuzzy_normalize
 
 log = logging.getLogger(__name__)
 
@@ -210,13 +211,13 @@ def compare(new_entries: list[dict], db_indexed: list[tuple[int, dict]]) -> Comp
         query = entry.get(COL_STUDENT, "").strip()
         if not query:
             continue
-        q_proc = fuzz_utils.default_process(query)
+        q_proc = _fuzzy_normalize(query)
         best_i, best_score = None, 0.0
         for i, (_, name) in enumerate(db):
             if i in matched_idx:
                 continue
             score = fuzz.token_set_ratio(
-                q_proc, fuzz_utils.default_process(name)
+                q_proc, _fuzzy_normalize(name)
             )
             if score > best_score:
                 best_i, best_score = i, score

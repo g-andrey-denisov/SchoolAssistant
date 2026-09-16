@@ -9,6 +9,18 @@ _SCORER = fuzz.token_set_ratio
 THRESHOLD = 68       # минимальный балл совпадения
 AMBIGUITY_GAP = 10   # разрыв баллов для однозначного выбора
 
+# «е» и «ё» считаем одной и той же буквой: пользователи почти никогда не
+# ставят точки над «ё» (Богатырев = Богатырёв, Артем = Артём).
+_YO_TO_YE = str.maketrans({"ё": "е", "Ё": "Е"})
+
+
+def normalize(text: str) -> str:
+    """Общая нормализация для сравнения ФИО/назначений: регистр, пунктуация, ё→е."""
+    return fuzz_utils.default_process(text.translate(_YO_TO_YE))
+
+
+_processor = normalize
+
 
 def find_best_match(query: str, candidates: list[str]) -> tuple[str | None, float]:
     """Возвращает (лучшее совпадение, балл) или (None, 0.0)."""
@@ -17,7 +29,7 @@ def find_best_match(query: str, candidates: list[str]) -> tuple[str | None, floa
     result = process.extractOne(
         query, candidates,
         scorer=_SCORER,
-        processor=fuzz_utils.default_process,
+        processor=_processor,
         score_cutoff=THRESHOLD,
     )
     if result:
@@ -39,7 +51,7 @@ def find_best_with_ambiguity(
     results = process.extract(
         query, candidates,
         scorer=_SCORER,
-        processor=fuzz_utils.default_process,
+        processor=_processor,
         limit=4,
         score_cutoff=THRESHOLD,
     )
@@ -61,5 +73,5 @@ def find_best_with_ambiguity(
 
 def fuzzy_purpose_match(query: str, purpose: str) -> bool:
     """Проверяет, описывает ли query то же назначение, что и purpose."""
-    score = fuzz.token_set_ratio(query.lower(), purpose.lower())
+    score = fuzz.token_set_ratio(_processor(query), _processor(purpose))
     return score >= THRESHOLD
