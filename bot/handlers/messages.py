@@ -315,8 +315,15 @@ async def _dispatch(message: Message, state: FSMContext, intent: SheetIntent) ->
                 intent, "amount",
             )
             return
+        if not intent.purpose:
+            await _ask_clarification(
+                message, state,
+                f"На что взнос <b>{esc(intent.student_name)}</b>?",
+                intent, "purpose",
+            )
+            return
         _, result = await finance_svc.add_contribution(
-            intent.student_name, intent.purpose or "без назначения", intent.amount
+            intent.student_name, intent.purpose, intent.amount
         )
         await message.answer(result)
         return
@@ -328,9 +335,10 @@ async def _dispatch(message: Message, state: FSMContext, intent: SheetIntent) ->
                 message, state, "Укажите сумму взноса на одного ученика.", intent, "per_student_amount"
             )
             return
-        result = await finance_svc.contribution_all_students(
-            intent.purpose or "без назначения", amount
-        )
+        if not intent.purpose:
+            await _ask_clarification(message, state, "На что взнос?", intent, "purpose")
+            return
+        result = await finance_svc.contribution_all_students(intent.purpose, amount)
         await message.answer(result)
         return
 

@@ -20,7 +20,7 @@ from google.oauth2.service_account import Credentials
 from config import settings
 from sheets.schema import (
     CONTACTS_COLUMNS, COL_NOTE, COL_PARENT_NAME, COL_PARENT_PHONE, COL_STUDENT,
-    SHEET_CONTACTS, SHEET_FINANCES,
+    CONTRIB_PREFIX, EXPENSE_PREFIX, SHEET_CONTACTS, SHEET_FINANCES,
 )
 
 log = logging.getLogger(__name__)
@@ -201,32 +201,55 @@ class SheetsClient:
         self,
         purpose: str,
         student_deltas: dict[str, float],
-    ) -> None:
+    ) -> str:
         """
         Для каждого ученика из student_deltas прибавляет delta к его ячейке
         в столбце purpose. Столбец создаётся при необходимости.
+
+        purpose — полное имя столбца С ПРЕФИКСОМ («Взнос: …» / «Трата: …»).
+        Перед созданием нового столбца ищем уже существующий с тем же
+        префиксом, чей «хвост» (назначение) нечётко совпадает с purpose —
+        это защита от дублей вида «Взнос: Нужды класса» / «Взнос: классные
+        нужды», если LLM не привела формулировку к канонической. Возвращает
+        ФАКТИЧЕСКОЕ имя использованного столбца (может отличаться от purpose,
+        если он смэтчился на уже существующий).
         """
+        from utils.fuzzy import find_best_match
+
         ws = await self._open_ws(SHEET_FINANCES())
         all_values: list[list[str]] = await self._run(ws.get_all_values)
         if not all_values:
             log.warning("Лист «%s» пуст", SHEET_FINANCES())
-            return
+            return purpose
 
         headers = all_values[0]
 
-        # Найти или создать столбец.
-        # Сначала точное совпадение, затем регистро-независимое — чтобы не создавать дубли
-        # при разном написании (напр. «Нужды класса» vs «нужды класса»).
+        # 1) Точное совпадение без учёта регистра.
         purpose_lower = purpose.lower()
         existing = next((h for h in headers if h.lower() == purpose_lower), None)
+
+        # 2) Нечёткое совпадение в пределах того же префикса («Взнос:»/«Трата:»),
+        #    чтобы не путать взносы и траты и не плодить столбцы-синонимы.
+        if existing is None:
+            prefix = next((p for p in (CONTRIB_PREFIX, EXPENSE_PREFIX) if purpose.startswith(p)), "")
+            if prefix:
+                bare = purpose[len(prefix):]
+                same_prefix = [h for h in headers if h.startswith(prefix)]
+                stripped = [h[len(prefix):] for h in same_prefix]
+                best, _ = find_best_match(bare, stripped)
+                if best:
+                    existing = prefix + best
+
         if existing:
             col_idx = headers.index(existing) + 1
+            final_name = existing
             if existing != purpose:
-                log.debug("Найдена похожая колонка «%s» вместо «%s»", existing, purpose)
+                log.info("Переиспользован похожий столбец «%s» вместо «%s»", existing, purpose)
         else:
             col_idx = len(headers) + 1
             await self._run(ws.update_cell, 1, col_idx, purpose)
             headers.append(purpose)
+            final_name = purpose
             log.info("Создан столбец «%s» col=%d", purpose, col_idx)
 
         # Собрать batch-обновления
@@ -243,7 +266,9 @@ class SheetsClient:
             await self._run(
                 ws.batch_update, updates, value_input_option="USER_ENTERED"
             )
-            log.info("batch_update «%s»: %d ячеек", purpose, len(updates))
+            log.info("batch_update «%s»: %d ячеек", final_name, len(updates))
+
+        return final_name
 
     async def update_finance_student_cell(
         self,

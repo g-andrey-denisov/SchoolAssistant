@@ -30,9 +30,10 @@ async def add_contribution(
         return None, f"Ученик <b>«{esc(student_query)}»</b> не найден."
 
     col = CONTRIB_PREFIX + purpose
-    await get_client().batch_update_finance_column(col, {name: amount})
-    log.info("Взнос: %s | %s | +%.2f", name, col, amount)
-    return name, f"✅ <b>{esc(name)}</b> сдал(а) <b>{amount:.0f} руб.</b> на «{esc(purpose)}»."
+    final_col = await get_client().batch_update_finance_column(col, {name: amount})
+    display_purpose = final_col[len(CONTRIB_PREFIX):]
+    log.info("Взнос: %s | %s | +%.2f", name, final_col, amount)
+    return name, f"✅ <b>{esc(name)}</b> сдал(а) <b>{amount:.0f} руб.</b> на «{esc(display_purpose)}»."
 
 
 async def contribution_all_students(purpose: str, per_student_amount: float) -> str:
@@ -43,11 +44,12 @@ async def contribution_all_students(purpose: str, per_student_amount: float) -> 
     n = len(active)
     col = CONTRIB_PREFIX + purpose
     deltas = {s[COL_STUDENT]: per_student_amount for s in active}
-    await get_client().batch_update_finance_column(col, deltas)
+    final_col = await get_client().batch_update_finance_column(col, deltas)
+    display_purpose = final_col[len(CONTRIB_PREFIX):]
     total = per_student_amount * n
-    log.info("Взнос all: %s | %.2f × %d = %.2f", col, per_student_amount, n, total)
+    log.info("Взнос all: %s | %.2f × %d = %.2f", final_col, per_student_amount, n, total)
     return (
-        f"✅ Взнос «{esc(purpose)}» записан всем:\n"
+        f"✅ Взнос «{esc(display_purpose)}» записан всем:\n"
         f"  На каждого: <b>{per_student_amount:.2f} руб.</b>\n"
         f"  Учеников: {n}\n"
         f"  Итого: <b>{total:.2f} руб.</b>"
@@ -65,10 +67,11 @@ async def split_expense(purpose: str, total_amount: float) -> str:
     per_person = round(total_amount / n, 2)
     col = EXPENSE_PREFIX + purpose
     deltas = {s[COL_STUDENT]: per_person for s in active}
-    await get_client().batch_update_finance_column(col, deltas)
-    log.info("Трата split: %s | %.2f / %d = %.2f", col, total_amount, n, per_person)
+    final_col = await get_client().batch_update_finance_column(col, deltas)
+    display_purpose = final_col[len(EXPENSE_PREFIX):]
+    log.info("Трата split: %s | %.2f / %d = %.2f", final_col, total_amount, n, per_person)
     return (
-        f"✅ Трата «{esc(purpose)}» распределена:\n"
+        f"✅ Трата «{esc(display_purpose)}» распределена:\n"
         f"  Итого: <b>{total_amount:.0f} руб.</b>\n"
         f"  Учеников: {n}\n"
         f"  На каждого: <b>{per_person:.2f} руб.</b>"
@@ -83,11 +86,12 @@ async def expense_per_student(purpose: str, per_student_amount: float) -> str:
     n = len(active)
     col = EXPENSE_PREFIX + purpose
     deltas = {s[COL_STUDENT]: per_student_amount for s in active}
-    await get_client().batch_update_finance_column(col, deltas)
+    final_col = await get_client().batch_update_finance_column(col, deltas)
+    display_purpose = final_col[len(EXPENSE_PREFIX):]
     total = per_student_amount * n
-    log.info("Трата per_student: %s | %.2f × %d = %.2f", col, per_student_amount, n, total)
+    log.info("Трата per_student: %s | %.2f × %d = %.2f", final_col, per_student_amount, n, total)
     return (
-        f"✅ Трата «{esc(purpose)}» записана каждому:\n"
+        f"✅ Трата «{esc(display_purpose)}» записана каждому:\n"
         f"  На каждого: <b>{per_student_amount:.2f} руб.</b>\n"
         f"  Учеников: {n}\n"
         f"  Итого: <b>{total:.2f} руб.</b>"
